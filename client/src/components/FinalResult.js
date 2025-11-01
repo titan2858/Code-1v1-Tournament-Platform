@@ -23,7 +23,7 @@ const FinalResult = () => {
         if (!user) {
           navigate("/login");
         }
-        const response = await axios.get("https://code-1v1-tournament-platform-backend.vercel.app/api/tournament/getTournamentDetails", { params: { roomId }});
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/tournament/getTournamentDetails`, { params: { roomId }});
         const { OldPlayers, Players, Admin } = response.data;
         if (Admin === user.id) {
           setIsAdmin(true);
@@ -41,7 +41,7 @@ const FinalResult = () => {
   useEffect(() => {
     const checkEnd = async () => {
       try {
-        const response = await axios.get("https://code-1v1-tournament-platform-backend.vercel.app/api/tournament/getTournamentDetails", { params: { roomId }});
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/tournament/getTournamentDetails`, { params: { roomId }});
         const { isRunning } = response.data;
         if(!isRunning){
           navigate(`/room/${roomId}`);
@@ -83,7 +83,7 @@ const FinalResult = () => {
 
   const leaveTournament = () => {
     axios
-      .post("https://code-1v1-tournament-platform-backend.vercel.app/api/tournament/leaveTournament", { roomId, userID })
+      .post(`${process.env.REACT_APP_API_URL}/api/tournament/leaveTournament`, { roomId, userID })
       .then((response) => {
         navigate(`/room/${roomId}`);
       })
@@ -94,7 +94,7 @@ const FinalResult = () => {
 
   const endTournament = () => {
     axios
-      .post("https://code-1v1-tournament-platform-backend.vercel.app/api/tournament/endTournament",  { roomId } )
+      .post(`${process.env.REACT_APP_API_URL}/api/tournament/endTournament`,  { roomId } )
       .then((response) => {
         navigate(`/room/${roomId}`);
       })

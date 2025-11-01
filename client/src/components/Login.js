@@ -22,7 +22,7 @@ const Login = () => {
     e.preventDefault(); // Prevent the default form submission behavior
     try {
       const response = await axios.post(
-        "https://code-1v1-tournament-platform-backend.vercel.app/api/auth/login",
+        `${process.env.REACT_APP_API_URL}/api/auth/login`,
         { email, password }
       );
       const userData = response.data;
