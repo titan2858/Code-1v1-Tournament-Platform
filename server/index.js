@@ -88,7 +88,7 @@ app.get("/api/tournament/getTime", tourController.getTime);
 app.get("/api/tournament/match/getProblemID", matchController.getProblemID);
 app.post("/api/tournament/match/submitCode", matchController.submitCode);
 app.post("/api/tournament/match/calculateResult", matchController.calculateResult);
-
+app.get("/api/tournament/match/test-jdoodle", matchController.testJDoodle);
 
 // Add this to your routes file temporarily
 app.get('/api/tournament/match/test-jdoodle', async (req, res) => {

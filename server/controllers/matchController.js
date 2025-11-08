@@ -223,6 +223,31 @@ async function findResult(array) {
     }
     return players;
 }
+exports.testJDoodle = async (req, res) => {
+    try {
+        console.log('CLIENT_ID:', process.env.CLIENT_ID ? 'EXISTS' : 'MISSING');
+        console.log('CLIENT_SECRET:', process.env.CLIENT_SECRET ? 'EXISTS' : 'MISSING');
+        
+        const response = await fetch("https://api.jdoodle.com/v1/execute", {
+            method: 'POST',
+            body: JSON.stringify({
+                clientId: process.env.CLIENT_ID,
+                clientSecret: process.env.CLIENT_SECRET,
+                script: "print('Hello World')",
+                language: "python3",
+                stdin: "",
+                versionIndex: "0"
+            }),
+            headers: { 'Content-Type': 'application/json' },
+        });
+        
+        const data = await response.json();
+        console.log('JDoodle Response:', data);
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
 exports.calculateResult = async (req, res) => {
     try {
