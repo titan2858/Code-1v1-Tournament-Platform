@@ -22,10 +22,32 @@ const app = express();
 // 1. CORS Configuration
 // This MUST come before sessions and routes to handle preflight requests.
 app.use(cors({
-  origin: '*', // Allows all origins
-  credentials: true 
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://code-1v1-tournament-platform-frontend-8jj7krknp.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5000'
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      // For now, allow all origins for testing
+      // In production, you should change this to: callback(new Error('Not allowed by CORS'));
+      callback(null, true);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
-app.options('*', cors()); // Handles preflight 'OPTIONS' requests
+
+// Handles preflight 'OPTIONS' requests
+app.options('*', cors());
 
 // 2. Body Parsers and Static Files
 app.use(express.static(__dirname + "/public"));
@@ -44,7 +66,10 @@ app.use(
       collectionName: 'sessions' // Name of the collection to store sessions
     }),
     cookie: {
-      maxAge: 1000 * 60 * 60 * 24 // 1 day
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
+      httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production (HTTPS only)
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // 'none' required for cross-origin in production
     }
   })
 );
@@ -63,7 +88,7 @@ mongoose.connect(process.env.DB_URI) // Removed deprecated options
 
 
 // --- ROUTES ---
-// (We already removed the 'async-mutex' wrappers from these)
+// Auth routes
 app.post("/api/auth/signup", authController.signup);
 app.post("/api/auth/login", authController.login);
 app.get("/api/auth/getUserName", authController.getUserName);
@@ -75,7 +100,7 @@ app.post("/api/rooms/leave", roomController.leaveRoom);
 app.get("/api/rooms/getRoomDetails", roomController.getRoomDetails);
 app.delete("/api/rooms/deleteRoom", roomController.deleteRoom);
 
-//Routes for tournament
+// Routes for tournament
 app.post("/api/tournament/startTournament", tourController.startTournament);
 app.get("/api/tournament/getTournamentDetails", tourController.getTournamentDetails);
 app.post("/api/tournament/startRound", tourController.startRound);
@@ -84,14 +109,25 @@ app.post("/api/tournament/endTournament", tourController.endTournament);
 app.post("/api/tournament/declareResult", tourController.declareResult);
 app.get("/api/tournament/getTime", tourController.getTime);
 
-//Routes for match
+// Routes for match
 app.get("/api/tournament/match/getProblemID", matchController.getProblemID);
 app.post("/api/tournament/match/submitCode", matchController.submitCode);
 app.post("/api/tournament/match/calculateResult", matchController.calculateResult);
 
+// Health check route (useful for Vercel)
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    message: 'Code 1v1 Tournament Platform API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Default 404 route
 app.all('*', (req, res) => {
-  res.status(404).send({ message: 'Route not found' });
+  res.status(404).json({ 
+    message: 'Route not found',
+    path: req.path 
+  });
 });
 
 // Export app for Vercel
