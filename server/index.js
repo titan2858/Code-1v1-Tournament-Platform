@@ -89,6 +89,30 @@ app.get("/api/tournament/match/getProblemID", matchController.getProblemID);
 app.post("/api/tournament/match/submitCode", matchController.submitCode);
 app.post("/api/tournament/match/calculateResult", matchController.calculateResult);
 
+
+// Add this to your routes file temporarily
+router.get('/test-jdoodle', async (req, res) => {
+    try {
+        const response = await fetch("https://api.jdoodle.com/v1/execute", {
+            method: 'POST',
+            body: JSON.stringify({
+                clientId: process.env.CLIENT_ID,
+                clientSecret: process.env.CLIENT_SECRET,
+                script: "print('Hello World')",
+                language: "python3",
+                stdin: "",
+                versionIndex: "0"
+            }),
+            headers: { 'Content-Type': 'application/json' },
+        });
+        
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Health check
 app.get('/', (req, res) => {
   res.status(200).json({ 
