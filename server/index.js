@@ -91,7 +91,7 @@ app.post("/api/tournament/match/calculateResult", matchController.calculateResul
 
 
 // Add this to your routes file temporarily
-router.get('/test-jdoodle', async (req, res) => {
+app.get('/api/tournament/match/test-jdoodle', async (req, res) => {
     try {
         const response = await fetch("https://api.jdoodle.com/v1/execute", {
             method: 'POST',
