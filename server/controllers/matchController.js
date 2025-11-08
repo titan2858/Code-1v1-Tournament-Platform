@@ -27,14 +27,23 @@ async function executeCode(script, language, stdin) {
 
         const data = await response.json();
         
+        // Log the full response for debugging
+        console.log('JDoodle Response:', JSON.stringify(data));
+        
         // Check if there was an error in execution
         if (data.error) {
             console.error('JDoodle Error:', data.error);
             throw new Error(data.error);
         }
         
+        // Check if output exists
+        if (!data.output && data.output !== "") {
+            console.error('No output field in response:', data);
+            throw new Error('No output returned from JDoodle');
+        }
+        
         // Better output cleaning
-        let output = data.output || "";
+        let output = data.output;
         
         // Remove any compilation warnings or messages (they usually start with specific patterns)
         // Split by newlines and filter out common compiler messages
