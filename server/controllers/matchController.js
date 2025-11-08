@@ -1,14 +1,11 @@
 const User = require("../models/User");
 const Room = require("../models/Room");
-
 const dotenv = require('dotenv');
 
 dotenv.config();
 
-
 // Function to execute code using the compiler API
 async function executeCode(script, language, stdin) {
-
     const execution_data = {
         clientId: process.env.CLIENT_ID,
         clientSecret: process.env.CLIENT_SECRET,
@@ -19,56 +16,77 @@ async function executeCode(script, language, stdin) {
     };
 
     try {
+        console.log('Executing code with JDoodle...');
+        console.log('Language:', language);
+        console.log('Has CLIENT_ID:', !!process.env.CLIENT_ID);
+        console.log('Has CLIENT_SECRET:', !!process.env.CLIENT_SECRET);
+        
         const response = await fetch("https://api.jdoodle.com/v1/execute", {
             method: 'POST',
             body: JSON.stringify(execution_data),
             headers: { 'Content-Type': 'application/json' },
         });
 
+        if (!response.ok) {
+            throw new Error(`JDoodle API returned status ${response.status}`);
+        }
+
         const data = await response.json();
         
         // Log the full response for debugging
         console.log('JDoodle Response:', JSON.stringify(data));
         
-        // Check if there was an error in execution
+        // Check for various error conditions
         if (data.error) {
-            console.error('JDoodle Error:', data.error);
-            throw new Error(data.error);
+            console.error('JDoodle API Error:', data.error);
+            throw new Error(`JDoodle Error: ${data.error}`);
         }
         
-        // Check if output exists
-        if (!data.output && data.output !== "") {
-            console.error('No output field in response:', data);
+        if (data.statusCode && data.statusCode !== 200) {
+            console.error('JDoodle Status Code Error:', data.statusCode, data.message);
+            throw new Error(`JDoodle Error: ${data.message || 'Unknown error'}`);
+        }
+
+        // Check if output exists - handle both null and undefined
+        if (data.output === null || data.output === undefined) {
+            console.error('No output field in JDoodle response:', data);
+            
+            // If there's a compile error or runtime error, return it
+            if (data.memory || data.cpuTime) {
+                // Execution completed but no output
+                return '';
+            }
+            
             throw new Error('No output returned from JDoodle');
         }
         
-        // Better output cleaning
-        let output = data.output;
+        // Clean and normalize output
+        let output = String(data.output);
         
-        // Remove any compilation warnings or messages (they usually start with specific patterns)
-        // Split by newlines and filter out common compiler messages
+        // Remove JDoodle metadata lines
         const lines = output.split('\n');
         const cleanLines = lines.filter(line => {
-            // Keep lines that don't look like compiler warnings/messages
-            return !line.includes('warning:') && 
-                   !line.includes('Warning:') &&
-                   !line.includes('note:') &&
-                   !line.includes('JDoodle') &&
-                   line.trim().length > 0;
+            const trimmed = line.trim().toLowerCase();
+            return trimmed.length > 0 &&
+                   !trimmed.includes('warning:') &&
+                   !trimmed.includes('note:') &&
+                   !trimmed.includes('jdoodle');
         });
         
         output = cleanLines.join('\n').trim();
         
-        // Normalize line endings (Windows vs Unix)
+        // Normalize line endings
         output = output.replace(/\r\n/g, '\n');
         
-        // Remove any trailing/leading whitespace
-        output = output.trim();
-        
         return output;
+        
     } catch (error) {
-        console.error('Execution Error:', error);
-        throw new Error('Execution failed: ' + error.message);
+        console.error('Execution Error Details:', {
+            message: error.message,
+            stack: error.stack,
+            language: language
+        });
+        throw new Error(`Code execution failed: ${error.message}`);
     }
 }
 
@@ -91,14 +109,42 @@ exports.submitCode = async (req, res) => {
     try {
         const { script, language, userID, problemID } = req.body;
         
+        console.log('=== Code Submission Started ===');
+        console.log('UserID:', userID);
+        console.log('ProblemID:', problemID);
+        console.log('Language:', language);
+        console.log('Script length:', script?.length);
+        
+        // Validate inputs
+        if (!script || !language || !userID || !problemID) {
+            return res.status(400).json({ 
+                message: 'Missing required fields',
+                missing: {
+                    script: !script,
+                    language: !language,
+                    userID: !userID,
+                    problemID: !problemID
+                }
+            });
+        }
+        
         let passedTestcases = 0;
         let totalTestcases = 0;
-        let failedTests = []; // Track failed tests for debugging
+        let failedTests = [];
+        let executionErrors = [];
         
         // Fetch test case headers
+        console.log('Fetching test case headers...');
         const headerResponse = await fetch(`https://judgedat.u-aizu.ac.jp/testcases/${problemID}/header`);
+        
+        if (!headerResponse.ok) {
+            throw new Error(`Failed to fetch test cases: ${headerResponse.status}`);
+        }
+        
         const headerData = await headerResponse.json();
         const headers = headerData.headers;
+        
+        console.log(`Found ${headers.length} test cases`);
         
         // Iterate over test case headers
         for (const header of headers) {
@@ -106,6 +152,8 @@ exports.submitCode = async (req, res) => {
             totalTestcases++;
             
             try {
+                console.log(`\n--- Test Case ${serial} ---`);
+                
                 // Fetch test case data
                 const testCaseResponse = await fetch(`https://judgedat.u-aizu.ac.jp/testcases/${problemID}/${serial}`);
                 const testCaseData = await testCaseResponse.json();
@@ -114,8 +162,13 @@ exports.submitCode = async (req, res) => {
                 const input = testCaseData.in.trim().replace(/\r\n/g, '\n');
                 const expectedOutput = testCaseData.out.trim().replace(/\r\n/g, '\n');
                 
+                console.log('Input length:', input.length);
+                console.log('Expected output length:', expectedOutput.length);
+                
                 // Execute the code with current test case input
                 const actualOutput = await executeCode(script, language, input);
+                
+                console.log('Actual output length:', actualOutput.length);
                 
                 // Normalize actual output for comparison
                 const normalizedActual = actualOutput.trim().replace(/\r\n/g, '\n');
@@ -124,32 +177,41 @@ exports.submitCode = async (req, res) => {
                 // Compare actual output with expected output
                 if (normalizedActual === normalizedExpected) {
                     passedTestcases++;
-                    console.log(`Test case ${serial}: PASSED`);
+                    console.log(`✓ Test case ${serial}: PASSED`);
                 } else {
-                    console.log(`Test case ${serial}: FAILED`);
-                    console.log(`Input: ${input}`);
-                    console.log(`Expected: "${normalizedExpected}"`);
-                    console.log(`Actual: "${normalizedActual}"`);
+                    console.log(`✗ Test case ${serial}: FAILED`);
+                    console.log(`Expected: "${normalizedExpected.substring(0, 100)}"`);
+                    console.log(`Actual: "${normalizedActual.substring(0, 100)}"`);
                     
-                    // Store failed test info (limit to first 3 for performance)
+                    // Store failed test info (limit to first 3)
                     if (failedTests.length < 3) {
                         failedTests.push({
                             serial,
-                            input: input.substring(0, 100), // Limit length
+                            input: input.substring(0, 100),
                             expected: normalizedExpected.substring(0, 100),
                             actual: normalizedActual.substring(0, 100)
                         });
                     }
                 }
             } catch (error) {
-                console.error(`Error executing test case ${serial}:`, error);
-                // Mark test case as failed if there's an execution error
-                failedTests.push({
+                console.error(`✗ Error executing test case ${serial}:`, error.message);
+                
+                // Store execution error
+                executionErrors.push({
                     serial,
                     error: error.message
                 });
+                
+                // If it's a JDoodle API error, stop testing
+                if (error.message.includes('JDoodle')) {
+                    console.error('JDoodle API error - stopping test execution');
+                    break;
+                }
             }
         }
+        
+        console.log('\n=== Test Results ===');
+        console.log(`Passed: ${passedTestcases}/${totalTestcases}`);
         
         // Update user's submission data
         const user = await User.findOne({ _id: userID });
@@ -159,18 +221,37 @@ exports.submitCode = async (req, res) => {
         
         user.numberOfTestsPassed = passedTestcases;
         user.submissionTime = new Date();
-        
         await user.save();
+        
+        console.log('User submission data updated');
+        console.log('=== Code Submission Completed ===\n');
 
         // Return results with debug info
-        res.status(200).json({ 
+        const response = { 
             passedTestcases, 
-            totalTestcases,
-            failedTests: failedTests.length > 0 ? failedTests : undefined // Only include if there are failures
-        });
+            totalTestcases
+        };
+        
+        // Only include debug info if there are failures or errors
+        if (failedTests.length > 0) {
+            response.failedTests = failedTests;
+        }
+        if (executionErrors.length > 0) {
+            response.executionErrors = executionErrors;
+        }
+        
+        res.status(200).json(response);
+        
     } catch (error) {
-        console.error('Submit Code Error:', error);
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('=== Submit Code Error ===');
+        console.error('Error:', error.message);
+        console.error('Stack:', error.stack);
+        
+        res.status(500).json({ 
+            message: 'Server error during code submission',
+            error: error.message,
+            details: 'Check server logs for more information'
+        });
     }
 };
 
@@ -196,22 +277,17 @@ async function findResult(array) {
             
             // Determine winner between two players
             if (s1 === null && s2 !== null) {
-                // Player 2 submitted, Player 1 didn't
                 players.push(array[i + 1]);
             } else if (s1 !== null && s2 === null) {
-                // Player 1 submitted, Player 2 didn't
                 players.push(array[i]);
             } else if (s1 === null && s2 === null) {
-                // Neither submitted - default to first player
                 players.push(array[i]);
             } else {
-                // Both submitted - compare scores
                 if (t1 > t2) {
                     players.push(array[i]);
                 } else if (t1 < t2) {
                     players.push(array[i + 1]);
                 } else {
-                    // Same score - earlier submission wins
                     if (s1 < s2) {
                         players.push(array[i]);
                     } else {
@@ -223,29 +299,52 @@ async function findResult(array) {
     }
     return players;
 }
+
 exports.testJDoodle = async (req, res) => {
     try {
-        console.log('CLIENT_ID:', process.env.CLIENT_ID ? 'EXISTS' : 'MISSING');
-        console.log('CLIENT_SECRET:', process.env.CLIENT_SECRET ? 'EXISTS' : 'MISSING');
+        console.log('=== JDoodle Test Endpoint ===');
+        console.log('CLIENT_ID exists:', !!process.env.CLIENT_ID);
+        console.log('CLIENT_SECRET exists:', !!process.env.CLIENT_SECRET);
+        console.log('CLIENT_ID value:', process.env.CLIENT_ID?.substring(0, 10) + '...');
+        
+        const testPayload = {
+            clientId: process.env.CLIENT_ID,
+            clientSecret: process.env.CLIENT_SECRET,
+            script: "print('Hello World')",
+            language: "python3",
+            stdin: "",
+            versionIndex: "0"
+        };
+        
+        console.log('Sending test request to JDoodle...');
         
         const response = await fetch("https://api.jdoodle.com/v1/execute", {
             method: 'POST',
-            body: JSON.stringify({
-                clientId: process.env.CLIENT_ID,
-                clientSecret: process.env.CLIENT_SECRET,
-                script: "print('Hello World')",
-                language: "python3",
-                stdin: "",
-                versionIndex: "0"
-            }),
+            body: JSON.stringify(testPayload),
             headers: { 'Content-Type': 'application/json' },
         });
         
+        console.log('Response status:', response.status);
+        
         const data = await response.json();
-        console.log('JDoodle Response:', data);
-        res.json(data);
+        console.log('JDoodle Response:', JSON.stringify(data, null, 2));
+        
+        res.json({
+            success: !data.error,
+            status: response.status,
+            data: data,
+            credentials: {
+                hasClientId: !!process.env.CLIENT_ID,
+                hasClientSecret: !!process.env.CLIENT_SECRET
+            }
+        });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Test endpoint error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message,
+            stack: error.stack
+        });
     }
 };
 
