@@ -19,18 +19,15 @@ const ContactUs = () => {
       <h1 style={{ fontSize: '36px', marginBottom: '24px' }}>Contact Us</h1>
       <div style={{ margin: '20px 0', fontSize: '20px' }}>
         <FaPhone style={{ marginRight: '20px', fontSize: '24px', transition: 'all 0.3s' }} />
-        <span>+91 7004482646</span>
+        <span>+91 9356602089</span>
       </div>
       <div style={{ margin: '20px 0', fontSize: '20px' }}>
         <FaEnvelope style={{ marginRight: '20px', fontSize: '24px', transition: 'all 0.3s' }} />
-        <a href="mailto:ashutoshksingh2003@gmail.com" style={{ color: '#fff', textDecoration: 'none' }}>ashutoshksingh2003@gmail.com</a>
+        <a href="mailto:bankapurhrishikesh@gmail.com" style={{ color: '#fff', textDecoration: 'none' }}>bankapurhrishikesh@gmail.com</a>
       </div>
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
-        <a href="https://github.com/Ashutosh-Kumar-Singh-IIT-Patna" target="_blank" rel="noopener noreferrer" className="social-link" style={{ color: '#fff', marginRight: '80px', fontSize: '30px', transition: 'all 0.3s', fontWeight: 'bold' }}>
+        <a href="https://github.com/titan2858/Code-1v1-Tournament-Platform.git" target="_blank" rel="noopener noreferrer" className="social-link" style={{ color: '#fff', marginRight: '80px', fontSize: '30px', transition: 'all 0.3s', fontWeight: 'bold' }}>
           <FaGithub className="social-icon" style={{ transition: 'all 0.3s' }} />
-        </a>
-        <a href="https://www.linkedin.com/in/ashutosh-singh-iitp/" target="_blank" rel="noopener noreferrer" className="social-link" style={{ color: '#fff', fontSize: '30px', transition: 'all 0.3s', fontWeight: 'bold' }}>
-          <FaLinkedin className="social-icon" style={{ transition: 'all 0.3s' }} />
         </a>
       </div>
     </div>
