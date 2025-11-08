@@ -14,7 +14,35 @@ dotenv.config();
 
 // Initialize Express app
 const app = express();
-app.use(cors());
+// --- New CORS Configuration ---
+
+// List all the frontend URLs that are allowed to make requests
+const allowedOrigins = [
+  'https://code-1v1-frontend.vercel.app', // Your main production frontend
+  'https://code-1v1-tournament-platform-frontend-p7yf9xgpx.vercel.app', // The preview one from the error
+  'http://localhost:3000' // For your local development
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true // This allows sessions/cookies
+}));
+
+// This next line is important!
+// It handles the "preflight" OPTIONS request that browsers send
+// before a POST, PUT, or DELETE request.
+app.options('*', cors()); 
+
+// --- End of New CORS Configuration ---
 
 // Define Express middleware
 app.use(express.static(__dirname + "/public"));
