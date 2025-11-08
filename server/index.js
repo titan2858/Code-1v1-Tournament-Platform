@@ -17,44 +17,25 @@ dotenv.config();
 // Initialize Express app
 const app = express();
 
-// --- START: CORRECT MIDDLEWARE ORDER ---
-
-// 1. CORS Configuration - UPDATED WITH YOUR NEW FRONTEND URL
+// --- SIMPLIFIED CORS - ALLOWS ALL VERCEL DOMAINS ---
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'https://code-1v1-tournament-platform-frontend-icpzxz3v6.vercel.app', // YOUR NEW FRONTEND URL
-      'https://code-1v1-tournament-platform-frontend-8jj7krknp.vercel.app', // OLD URL (in case)
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:5000'
-    ];
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      // For testing, allow all origins
-      callback(null, true);
-    }
-  },
+  origin: true, // This reflects the requesting origin back
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
-  exposedHeaders: ['Set-Cookie']
+  exposedHeaders: ['Set-Cookie'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
-// Handles preflight 'OPTIONS' requests
 app.options('*', cors());
 
-// 2. Body Parsers and Static Files
+// Body Parsers
 app.use(express.static(__dirname + "/public"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// 3. Session Configuration
+// Session Configuration
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'fallback-secret-key-change-in-production',
@@ -65,15 +46,13 @@ app.use(
       collectionName: 'sessions'
     }),
     cookie: {
-      maxAge: 1000 * 60 * 60 * 24, // 1 day
+      maxAge: 1000 * 60 * 60 * 24,
       httpOnly: true,
-      secure: true, // Always true for Vercel (HTTPS)
-      sameSite: 'none' // Required for cross-origin
+      secure: true,
+      sameSite: 'none'
     }
   })
 );
-
-// --- END: CORRECT MIDDLEWARE ORDER ---
 
 // Connect to MongoDB
 mongoose.connect(process.env.DB_URI)
@@ -84,20 +63,19 @@ mongoose.connect(process.env.DB_URI)
     console.error('MongoDB connection error:', err);
   });
 
-// --- ROUTES ---
 // Auth routes
 app.post("/api/auth/signup", authController.signup);
 app.post("/api/auth/login", authController.login);
 app.get("/api/auth/getUserName", authController.getUserName);
 
-// Routes for room operations
+// Room routes
 app.post("/api/rooms/create", roomController.createRoom);
 app.post("/api/rooms/join", roomController.joinRoom);
 app.post("/api/rooms/leave", roomController.leaveRoom);
 app.get("/api/rooms/getRoomDetails", roomController.getRoomDetails);
 app.delete("/api/rooms/deleteRoom", roomController.deleteRoom);
 
-// Routes for tournament
+// Tournament routes
 app.post("/api/tournament/startTournament", tourController.startTournament);
 app.get("/api/tournament/getTournamentDetails", tourController.getTournamentDetails);
 app.post("/api/tournament/startRound", tourController.startRound);
@@ -106,21 +84,21 @@ app.post("/api/tournament/endTournament", tourController.endTournament);
 app.post("/api/tournament/declareResult", tourController.declareResult);
 app.get("/api/tournament/getTime", tourController.getTime);
 
-// Routes for match
+// Match routes
 app.get("/api/tournament/match/getProblemID", matchController.getProblemID);
 app.post("/api/tournament/match/submitCode", matchController.submitCode);
 app.post("/api/tournament/match/calculateResult", matchController.calculateResult);
 
-// Health check route
+// Health check
 app.get('/', (req, res) => {
   res.status(200).json({ 
     message: 'Code 1v1 Tournament Platform API is running',
     timestamp: new Date().toISOString(),
-    cors: 'enabled'
+    cors: 'enabled - all origins allowed'
   });
 });
 
-// Default 404 route
+// 404 handler
 app.all('*', (req, res) => {
   res.status(404).json({ 
     message: 'Route not found',
@@ -128,5 +106,4 @@ app.all('*', (req, res) => {
   });
 });
 
-// Export app for Vercel
 module.exports = app;
