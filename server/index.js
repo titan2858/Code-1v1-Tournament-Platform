@@ -30,31 +30,18 @@ const allowedOrigins = [
   new RegExp(/^https?:\/\/code-1v1-tournament-platform-frontend-.*\.vercel\.app$/)
 ];
 
+// --- New Simplified CORS Configuration ---
+
+// This allows ALL origins.
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    // Check if origin is in our list OR matches our regex
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (typeof allowedOrigin === 'string') {
-        return allowedOrigin === origin;
-      }
-      if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return false;
-    });
-
-    if (isAllowed) {
-      return callback(null, true);
-    } else {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-  },
-  credentials: true // This allows sessions/cookies
+  origin: '*',
+  credentials: true
 }));
+
+// This is VITAL. It handles the 'OPTIONS' preflight request.
+app.options('*', cors()); 
+
+// --- End of New CORS Configuration ---
 
 // This part stays the same
 app.options('*', cors()); 
