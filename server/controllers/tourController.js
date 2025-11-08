@@ -10,25 +10,54 @@ async function shuffleArray(array) {
 }
 
 async function assignProblem(array) {
-    for( let i=0;i<array.length;i++){
-        const randomNumber=Math.floor(Math.random() * 2);
-        const paddedNumber = String(randomNumber).padStart(4, '0');
-        const ID = array[i].id;
-        const user = await User.findOne({ _id:ID });
-        user.problemID = paddedNumber;
-        user.numberOfTestsPassed = 0;
-        user.submissionTime = null;
-        await user.save();
-        i++;
-        if(i<array.length){
-            const ID1 = array[i].id;
-            const user1 = await User.findOne({ _id:ID1 });
-            user1.problemID = paddedNumber;
-            user1.numberOfTestsPassed = 0;
-            user1.submissionTime = null;
-            await user1.save();
+ for( let i=0;i<array.length;i++){
+  const randomNumber=Math.floor(Math.random() * 2);
+ const paddedNumber = String(randomNumber).padStart(4, '0');
+ 
+        // --- Fix for User 1 ---
+ const ID = array[i]?.id; // Use optional chaining just in case
+        if (!ID) {
+            console.warn(`Skipping player at index ${i}: Invalid player data.`);
+            continue; // Skip this loop iteration
         }
-    }
+
+ const user = await User.findOne({ _id:ID });
+
+        // **HERE IS THE FIX:** Check if the user is null
+        if (!user) {
+            console.warn(`User not found with ID ${ID} (from index ${i})`);
+            i++; // Still increment 'i' to move to the next pair
+            continue; // Skip the rest of this iteration
+        }
+
+ user.problemID = paddedNumber;
+ user.numberOfTestsPassed = 0;
+ user.submissionTime = null;
+ await user.save();
+ i++;
+
+  if(i<array.length){
+            // --- Fix for User 2 ---
+  const ID1 = array[i]?.id; // Use optional chaining
+            if (!ID1) {
+                console.warn(`Skipping player at index ${i}: Invalid player data.`);
+                continue; // Skip this loop iteration
+            }
+
+ const user1 = await User.findOne({ _id:ID1 });
+
+            // **HERE IS THE FIX:** Check if user1 is null
+            if (!user1) {
+                console.warn(`User not found with ID ${ID1} (from index ${i})`);
+                continue; // Skip the rest of this iteration
+            }
+  
+  user1.problemID = paddedNumber;
+ user1.numberOfTestsPassed = 0;
+  user1.submissionTime = null;
+ await user1.save();
+ }
+ }
 }
 
 exports.startTournament = async (req, res) => {

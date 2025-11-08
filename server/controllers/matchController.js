@@ -1,7 +1,7 @@
 const User = require("../models/User");
 const Room = require("../models/Room");
 
-import dotenv from 'dotenv';
+const dotenv = require('dotenv');
 
 dotenv.config();
 
