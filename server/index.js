@@ -17,11 +17,48 @@ const app = express();
 // --- New CORS Configuration ---
 
 // List all the frontend URLs that are allowed to make requests
+// --- New, Permanent CORS Configuration ---
+
+// List all the frontend URLs that are allowed to make requests
 const allowedOrigins = [
   'https://code-1v1-frontend.vercel.app', // Your main production frontend
-  'https://code-1v1-tournament-platform-frontend-p7yf9xgpx.vercel.app', // The preview one from the error
-  'http://localhost:3000' // For your local development
+  'http://localhost:3000', // For your local development
+
+  // This new line is a "wildcard" (Regular Expression)
+  // It will match all URLs that start with 'code-1v1-tournament-platform-frontend-'
+  new RegExp(/^https?:\/\/code-1v1-tournament-platform-frontend-.*\.vercel\.app$/)
 ];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is in our list OR matches our regex
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      }
+      if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+
+    if (isAllowed) {
+      return callback(null, true);
+    } else {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+  },
+  credentials: true // This allows sessions/cookies
+}));
+
+// This part stays the same
+app.options('*', cors()); 
+
+// --- End of New CORS Configuration ---
 
 app.use(cors({
   origin: function (origin, callback) {
