@@ -6,6 +6,7 @@ const authController = require("./controllers/authController");
 const roomController = require("./controllers/roomController");
 const tourController = require("./controllers/tourController");
 const matchController = require("./controllers/matchController");
+const MongoStore = require('connect-mongo');
 const cors = require("cors");
 // const { Mutex } = require('async-mutex'); // <-- REMOVED
 const dotenv = require('dotenv');
@@ -85,13 +86,22 @@ app.options('*', cors());
 app.use(express.static(__dirname + "/public"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+// --- NEW SESSION CONFIGURATION ---
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
-    resave: true,
-    saveUninitialized: true,
+    resave: false, // Don't save session if unmodified
+    saveUninitialized: false, // Don't create session until something stored
+    store: MongoStore.create({
+      mongoUrl: process.env.DB_URI, // Use your existing DB_URI
+      collectionName: 'sessions' // Name of the collection to store sessions
+    }),
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 // 1 day
+    }
   })
 );
+// --- END NEW SESSION CONFIGURATION ---
 
 // Connect to MongoDB
 // Removed deprecated options
