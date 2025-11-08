@@ -2,7 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const session = require("express-session");
-const MongoStore = require('connect-mongo'); // For production sessions
+const MongoStore = require('connect-mongo');
 const cors = require("cors");
 const dotenv = require('dotenv');
 
@@ -19,15 +19,15 @@ const app = express();
 
 // --- START: CORRECT MIDDLEWARE ORDER ---
 
-// 1. CORS Configuration
-// This MUST come before sessions and routes to handle preflight requests.
+// 1. CORS Configuration - UPDATED WITH YOUR NEW FRONTEND URL
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
-      'https://code-1v1-tournament-platform-frontend-8jj7krknp.vercel.app',
+      'https://code-1v1-tournament-platform-frontend-icpzxz3v6.vercel.app', // YOUR NEW FRONTEND URL
+      'https://code-1v1-tournament-platform-frontend-8jj7krknp.vercel.app', // OLD URL (in case)
       'http://localhost:3000',
       'http://localhost:5173',
       'http://localhost:5000'
@@ -36,14 +36,14 @@ app.use(cors({
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      // For now, allow all origins for testing
-      // In production, you should change this to: callback(new Error('Not allowed by CORS'));
+      // For testing, allow all origins
       callback(null, true);
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie']
 }));
 
 // Handles preflight 'OPTIONS' requests
@@ -54,38 +54,35 @@ app.use(express.static(__dirname + "/public"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// 3. Session Configuration (with MongoStore)
-// This MUST come after parsers but before routes.
+// 3. Session Configuration
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
-    resave: false, // Don't save session if unmodified
-    saveUninitialized: false, // Don't create session until something stored
+    secret: process.env.SESSION_SECRET || 'fallback-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
     store: MongoStore.create({
-      mongoUrl: process.env.DB_URI, // Use your existing DB_URI
-      collectionName: 'sessions' // Name of the collection to store sessions
+      mongoUrl: process.env.DB_URI,
+      collectionName: 'sessions'
     }),
     cookie: {
       maxAge: 1000 * 60 * 60 * 24, // 1 day
-      httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production (HTTPS only)
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // 'none' required for cross-origin in production
+      httpOnly: true,
+      secure: true, // Always true for Vercel (HTTPS)
+      sameSite: 'none' // Required for cross-origin
     }
   })
 );
 
 // --- END: CORRECT MIDDLEWARE ORDER ---
 
-
 // Connect to MongoDB
-mongoose.connect(process.env.DB_URI) // Removed deprecated options
+mongoose.connect(process.env.DB_URI)
   .then(() => {
     console.log('MongoDB connected');
   })
   .catch((err) => {
     console.error('MongoDB connection error:', err);
   });
-
 
 // --- ROUTES ---
 // Auth routes
@@ -114,11 +111,12 @@ app.get("/api/tournament/match/getProblemID", matchController.getProblemID);
 app.post("/api/tournament/match/submitCode", matchController.submitCode);
 app.post("/api/tournament/match/calculateResult", matchController.calculateResult);
 
-// Health check route (useful for Vercel)
+// Health check route
 app.get('/', (req, res) => {
   res.status(200).json({ 
     message: 'Code 1v1 Tournament Platform API is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    cors: 'enabled'
   });
 });
 
